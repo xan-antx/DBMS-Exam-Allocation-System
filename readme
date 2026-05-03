@@ -1,170 +1,44 @@
-# Examination Hall Seat Allocation System
+Examination Hall Seat Allocation System
+Course: UCS310 – Database Management Systems | Thapar Institute
 
-**Course:** UCS310 – Database Management Systems  
-**Institution:** Thapar Institute of Engineering & Technology  
-**Group Members:** Vivek Pandey, Anant Agrawal, Gulnaz
+Team: Vivek Pandey, Anant Agrawal, Gulnaz
 
----
+🚀 The Hook: One-Click Automation
+Manually assigning seats to hundreds of students across multiple exam halls is a chaotic, error-prone nightmare. This system completely automates it.
 
-## What This Project Does
+Add students, register them for a course, and click one button. The system instantly and randomly distributes every student across available halls, assigns unique seat numbers, and generates a complete seating plan.
 
-Every semester, manually assigning seats to hundreds of students across multiple exam halls is a chaotic, error-prone process. This system automates it completely.
+The best part? The database enforces the rules. No two students share a seat, no hall gets overbooked, and every single allocation is strictly traceable.
 
-You add students, register them for a course, and click one button. The system randomly distributes every student across available halls, assigns them a unique seat number, and generates a complete seating plan — all in under a second. The database enforces constraints automatically: no two students share a seat, no hall gets overfilled, and every allocation is traceable.
+🛠️ Tech Stack
+Frontend: HTML, CSS, Vanilla JS, Chart.js (Visual Analytics)
 
----
+Backend: Node.js, Express.js (REST API)
 
-## Tech Stack
+Database: MySQL 8.0
 
-| Layer | Technology |
-|---|---|
-| Frontend | HTML, CSS, Vanilla JavaScript |
-| Backend | Node.js, Express.js |
-| Database | MySQL 8.0 |
-| Charting | Chart.js |
-| API Style | REST |
+🧠 The Engine: Core Database Architecture
+This project isn't just a basic CRUD app; it relies on heavy database-level logic to ensure data integrity.
 
----
+The Watchdog Trigger (hall_capacity_trg): Fires BEFORE INSERT on the Allocation table. It calculates current hall occupancy and strictly blocks any insert if the hall has reached its limit. The frontend literally cannot overbook a room.
 
-## Database Design
+The Brain Procedure (allocate_random_seats): This stored procedure handles the heavy lifting. It verifies global capacity, opens a cursor to fetch enrolled students randomly, and loops through to assign halls and seats.
 
-Six tables form the core of this system:
+Collision & Transaction Handling: If a random seat is already taken, a UNIQUE constraint catches it, and the procedure auto-retries. It only COMMITS upon 100% success and completely ROLLBACKS if a single allocation fails.
 
-- **Student** — stores student details (name, roll number, branch)
-- **Course** — exam subjects with department info
-- **Hall** — exam venues with seating capacity
-- **Exam_Schedule** — maps courses to exam dates
-- **Student_Course** — enrollment junction table (which student sits which exam)
-- **Allocation** — the final seating record (student → hall → seat number)
+Bulletproof Constraints:
 
-### Constraints enforced at the database level:
-- A student can only get **one seat per exam** (`UNIQUE` on exam_id + student_id)
-- No two students can share the **same seat in the same hall** (`UNIQUE` on exam_id + hall_id + seat_no)
-- Hall capacity is enforced by a **trigger before every insert**
+UNIQUE(exam_id, student_id): One seat per student, guaranteed.
 
----
+UNIQUE(exam_id, hall_id, seat_no): No sharing seats, ever.
 
-## Core Database Features
+AUTO_INCREMENT: Handles ID generation cleanly (acting as our Oracle Sequence equivalent).
 
-### Trigger — `hall_capacity_trg`
-Fires `BEFORE INSERT` on the Allocation table. Before every seat assignment, it counts how many students are already placed in that hall for that exam and compares it against the hall's capacity. If the hall is full, it raises an error and blocks the insert. This means the application cannot accidentally overbook a hall — the database itself prevents it.
+🖥️ Live Features
+Seat Allocation Engine: Watch the stored procedure execute and assign seats in real-time.
 
-```sql
-CREATE TRIGGER hall_capacity_trg
-BEFORE INSERT ON Allocation
-FOR EACH ROW
-BEGIN
-    -- counts current occupancy, blocks insert if hall is full
-END;
-```
+Live Dashboards: Add students, manage hall capacities, and enroll students into courses instantly.
 
-### Stored Procedure — `allocate_random_seats`
-This is the heart of the project. When called with an exam ID, it:
+Visual Analytics: Real-time Chart.js doughnut graphs displaying student distribution and hall occupancy post-allocation.
 
-1. Checks if total hall capacity across all venues is sufficient for the number of registered students
-2. Opens a **cursor** that fetches all enrolled students in random order (`ORDER BY RAND()`)
-3. Loops through each student, picks a random hall that still has space, picks a random seat number, and attempts the insert
-4. If the seat is already taken (caught by the unique constraint), it retries automatically
-5. Commits only after every student has been successfully allocated
-6. Rolls back entirely if allocation fails for any student
-
-This mirrors the logic originally written in Oracle PL/SQL (using `DBMS_RANDOM.VALUE` and `RAISE_APPLICATION_ERROR`), rewritten equivalently in MySQL.
-
-### AUTO_INCREMENT (equivalent to Oracle SEQUENCE)
-The `alloc_id` primary key in the Allocation table uses `AUTO_INCREMENT`, which serves the same purpose as `CREATE SEQUENCE alloc_seq` in Oracle — generating unique IDs for every allocation record automatically.
-
----
-
-## API Routes
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/students` | Fetch all students |
-| POST | `/students` | Add a new student |
-| GET | `/halls` | Fetch all halls with occupancy |
-| POST | `/halls` | Add a new hall |
-| GET | `/courses` | Fetch all courses |
-| GET | `/exams` | Fetch all scheduled exams |
-| GET | `/enrollments` | Fetch all student-course enrollments |
-| POST | `/enroll` | Enroll a student into a course |
-| POST | `/allocate` | Trigger the stored procedure |
-| GET | `/allocations` | Fetch the full seating plan |
-| GET | `/analytics/piechart` | Students per hall (for chart) |
-| GET | `/analytics/occupancy` | Hall capacity vs usage |
-
----
-
-## Frontend Features
-
-- **Student Registry** — add students and view all registered students live
-- **Hall Management** — add exam halls with capacity, view occupancy percentage
-- **Enroll in Exam** — assign a student to a course so they appear in the allocation
-- **Seat Allocation Engine** — select an exam, click Run, watch the stored procedure execute and seats get assigned in real time
-- **Live Allocation Log** — shows each assignment as it comes back from the database
-- **Full Seating Plan Table** — complete hall-wise, seat-wise breakdown of every student
-- **Hall Distribution Chart** — doughnut chart showing how students are spread across halls, updates after every allocation
-
----
-
-## How to Run Locally
-
-**Prerequisites:** MySQL 8.0+, Node.js 18+
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/xan-antx/DBMS-Exam-Allocation-System.git
-cd DBMS-Exam-Allocation-System
-
-# 2. Import the database schema
-mysql -u root -p < schema.sql
-
-# 3. Set your MySQL password in db.js
-# Open db.js and update the password field
-
-# 4. Install dependencies
-npm install
-
-# 5. Start the server
-node server.js
-
-# 6. Open index.html in your browser
-```
-
-The server runs at `http://localhost:3000`. The frontend communicates with it via REST API calls.
-
----
-
-## Sample Data Included
-
-The schema comes preloaded with:
-- 6 students across CSE, ECE, EE, ME branches
-- 3 courses: DBMS, Data Structures, Networks
-- 3 halls: Hall A (cap: 20), Hall B (cap: 20), Hall C (cap: 15)
-- 3 scheduled exams
-- Students already enrolled in courses
-
-You can run an allocation immediately after setup without adding any data manually.
-
----
-
-## Project Structure
-
-```
-├── index.html       # Complete frontend (HTML + CSS + JS)
-├── server.js        # Express backend with all API routes
-├── db.js            # MySQL connection configuration
-├── schema.sql       # Full database schema, trigger, procedure, sample data
-├── package.json     # Node.js dependencies
-└── README.md        # This file
-```
-
----
-
-## Key Concepts Demonstrated
-
-- Relational schema design with primary and foreign key constraints
-- Stored procedure with cursor-based iteration and transaction control
-- Before-insert trigger for enforcing business rules at the database layer
-- Auto-increment as an equivalent to Oracle sequences
-- Full-stack integration: frontend → REST API → stored procedure → MySQL
-- Random seat assignment with collision handling and retry logic
+Seating Plan Generation: Instantly outputs a full, hall-wise breakdown of every student.
