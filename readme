@@ -1,0 +1,9 @@
+# DBMS Exam Seat Allocation System
+UCS310 - Database Management Systems Project
+
+## How to run
+1. Import schema.sql into MySQL
+2. Add your MySQL password in db.js
+3. Run: npm install
+4. Run: node server.js
+5. Open index.html in browser
