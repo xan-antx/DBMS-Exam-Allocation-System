@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exam Seat Allocation System</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Syne:wght@400;600;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-base:       #060810;
+      --bg-card:       rgba(14, 18, 32, 0.7);
+      --bg-input:      rgba(0, 0, 0, 0.45);
+      --grad-primary:  linear-gradient(135deg, #00FFB2 0%, #00C3FF 100%);
+      --grad-purple:   linear-gradient(135deg, #A855F7 0%, #6366F1 100%);
+      --accent:        #00FFB2;
+      --accent2:       #6366F1;
+      --success-bg:    rgba(0, 255, 178, 0.1);
+      --success-text:  #00FFB2;
+      --warn-bg:       rgba(251, 191, 36, 0.12);
+      --warn-text:     #FCD34D;
+      --info-bg:       rgba(99, 102, 241, 0.12);
+      --info-text:     #818CF8;
+      --text-main:     #F0F4FF;
+      --text-muted:    #7B8DB0;
+      --border:        rgba(255,255,255,0.07);
+      --border-focus:  rgba(0,255,178,0.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Syne', system-ui, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse at 10% 40%, rgba(0,255,178,0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 90% 10%, rgba(99,102,241,0.07) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 90%, rgba(0,195,255,0.04) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 10px; }
+
+    /* ── NAVBAR ── */
+    .navbar {
+      background: rgba(6,8,16,0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      padding: 1.1rem 2.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      box-shadow: 0 2px 30px rgba(0,0,0,0.6);
+    }
+    .navbar-left { display: flex; align-items: center; gap: 14px; }
+    .navbar-icon {
+      width: 36px; height: 36px;
+      background: var(--grad-primary);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.1rem;
+    }
+    .navbar h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      background: var(--grad-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .navbar .badge {
+      background: var(--success-bg);
+      color: var(--success-text);
+      border: 1px solid rgba(0,255,178,0.25);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+
+    /* ── GRID ── */
+    .container {
+      max-width: 1440px;
+      margin: 2rem auto;
+      padding: 0 2rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.8rem;
+      align-items: start;
+    }
+    @media (max-width: 1150px) { .container { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 780px)  { .container { grid-template-columns: 1fr; padding: 0 1rem; } }
+
+    /* ── CARDS ── */
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      border-radius: 18px;
+      padding: 1.8rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 12px 40px -10px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(0,255,178,0.2), transparent);
+    }
+    .card.wide { grid-column: 1 / -1; }
+    .card.two-col { grid-column: span 2; }
+    @media (max-width: 1150px) { .card.two-col { grid-column: 1 / -1; } }
+
+    .card-header {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 1.6rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-main);
+      letter-spacing: 0.3px;
+    }
+    .card-header::before {
+      content: '';
+      display: block;
+      width: 3px; height: 1.2rem;
+      background: var(--accent);
+      border-radius: 3px;
+      box-shadow: 0 0 8px rgba(0,255,178,0.6);
+    }
+
+    /* ── FORMS ── */
+    .form-group { margin-bottom: 1.1rem; }
+    .form-group label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .form-group input,
+    .form-group select {
+      width: 100%;
+      padding: 0.8rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      background: var(--bg-input);
+      color: var(--text-main);
+      font-size: 0.9rem;
+      font-family: 'Syne', sans-serif;
+      transition: all 0.25s ease;
+    }
+    .form-group select {
+      appearance: none;
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237B8DB0' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 0.9rem center;
+      background-size: 1em;
+    }
+    .form-group select option { background: #0D1120; }
+    .form-group input:focus,
+    .form-group select:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(0,255,178,0.1);
+    }
+
+    /* ── BUTTONS ── */
+    .btn {
+      width: 100%;
+      padding: 0.9rem;
+      border: none;
+      border-radius: 9px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.25s ease;
+      margin-top: auto;
+    }
+    .btn-primary {
+      background: var(--grad-primary);
+      color: #060810;
+      box-shadow: 0 4px 18px rgba(0,255,178,0.25);
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(0,255,178,0.4);
+      filter: brightness(1.08);
+    }
+    .btn-secondary {
+      background: var(--grad-purple);
+      color: #fff;
+      box-shadow: 0 4px 18px rgba(99,102,241,0.25);
+    }
+    .btn-secondary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(99,102,241,0.4);
+    }
+    .btn:active { transform: translateY(0); }
+
+    /* ── LISTS ── */
+    .list-container {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 280px;
+      overflow-y: auto;
+      padding-right: 4px;
+      flex-grow: 1;
+    }
+    .item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      transition: background 0.2s;
+    }
+    .item:hover { background: rgba(255,255,255,0.06); }
+    .item-details { display: flex; flex-direction: column; gap: 2px; }
+    .item-details strong { font-size: 0.9rem; font-weight: 600; }
+    .item-details small {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .empty-state {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      padding: 2rem 0;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ── BADGES ── */
+    .badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 4px 10px;
+      border-radius: 20px;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .badge-green  { background: var(--success-bg); color: var(--success-text); border: 1px solid rgba(0,255,178,0.25); }
+    .badge-purple { background: var(--info-bg);    color: var(--info-text);    border: 1px solid rgba(99,102,241,0.3); }
+    .badge-yellow { background: var(--warn-bg);    color: var(--warn-text);    border: 1px solid rgba(251,191,36,0.25); }
+    .badge-blue   { background: rgba(0,195,255,0.1); color: #67E8F9; border: 1px solid rgba(0,195,255,0.25); }
+
+    /* ── CHART ── */
+    .chart-container {
+      position: relative;
+      height: 240px;
+      margin-top: 0.5rem;
+    }
+
+    /* ── SPLIT LAYOUT ── */
+    .split-layout {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2.5rem;
+      align-items: start;
+    }
+    @media (max-width: 800px) { .split-layout { grid-template-columns: 1fr; } }
+
+    /* ── SEATING TABLE ── */
+    .table-wrapper {
+      overflow-x: auto;
+      margin-top: 0.5rem;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.85rem;
+    }
+    thead th {
+      background: rgba(0,255,178,0.07);
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 0.8rem 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody td { padding: 0.75rem 1rem; color: var(--text-main); }
+    tbody td.mono { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--text-muted); }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      padding: 0.9rem 1.4rem;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      z-index: 999;
+      opacity: 0;
+      transform: translateY(12px);
+      transition: all 0.3s ease;
+      pointer-events: none;
+      max-width: 340px;
+    }
+    #toast.show { opacity: 1; transform: translateY(0); }
+    #toast.success { background: var(--success-bg); color: var(--success-text); border: 1px solid rgba(0,255,178,0.3); }
+    #toast.error   { background: rgba(244,63,94,0.15); color: #FB7185; border: 1px solid rgba(244,63,94,0.3); }
+
+    /* ── STAT CHIPS ── */
+    .stats-row {
+      display: flex;
+      gap: 0.8rem;
+      margin-bottom: 1.4rem;
+      flex-wrap: wrap;
+    }
+    .stat-chip {
+      flex: 1;
+      min-width: 80px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.8rem;
+      text-align: center;
+    }
+    .stat-chip .val {
+      font-size: 1.5rem;
+      font-weight: 800;
+      background: var(--grad-primary);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1;
+    }
+    .stat-chip .lbl {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 4px;
+    }
+
+    .section-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 0.6rem;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAVBAR -->
+  <nav class="navbar">
+    <div class="navbar-left">
+      <div class="navbar-icon">🎓</div>
+      <h1>ExamSeat — Allocation System</h1>
+    </div>
+    <span class="badge">UCS310 · DBMS Project</span>
+  </nav>
+
+  <div class="container">
+
+    <!-- ── CARD 1: STUDENTS ── -->
+    <div class="card">
+      <h2 class="card-header">Student Registry</h2>
+
+      <div class="form-group">
+        <label>Student ID</label>
+        <input type="number" id="s_id" placeholder="e.g. 7">
+      </div>
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" id="s_name" placeholder="e.g. Riya Kapoor">
+      </div>
+      <div class="form-group">
+        <label>Roll Number</label>
+        <input type="text" id="s_roll" placeholder="e.g. CS107">
+      </div>
+      <div class="form-group">
+        <label>Branch</label>
+        <select id="s_branch">
+          <option value="CSE">CSE</option>
+          <option value="ECE">ECE</option>
+          <option value="EE">EE</option>
+          <option value="ME">ME</option>
+          <option value="CE">CE</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="addStudent()">Add Student</button>
+
+      <div style="margin-top:1.4rem;">
+        <span class="section-label">Registered Students</span>
+        <div id="studentList" class="list-container"><p class="empty-state">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ── CARD 2: HALLS ── -->
+    <div class="card">
+      <h2 class="card-header">Hall Management</h2>
+
+      <div class="form-group">
+        <label>Hall ID</label>
+        <input type="number" id="h_id" placeholder="e.g. 4">
+      </div>
+      <div class="form-group">
+        <label>Hall Name</label>
+        <input type="text" id="h_name" placeholder="e.g. Hall D">
+      </div>
+      <div class="form-group">
+        <label>Seating Capacity</label>
+        <input type="number" id="h_cap" placeholder="e.g. 30">
+      </div>
+      <button class="btn btn-secondary" onclick="addHall()">Add Hall</button>
+
+      <div style="margin-top:1.4rem;">
+        <span class="section-label">Available Halls</span>
+        <div id="hallList" class="list-container"><p class="empty-state">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ── CARD 3: ENROLL STUDENT ── -->
+    <div class="card">
+      <h2 class="card-header">Enroll in Exam</h2>
+
+      <p style="font-size:0.8rem; color:var(--text-muted); margin-bottom:1.2rem; line-height:1.6;">
+        After adding a student, enroll them into a course so they appear in the allocation.
+      </p>
+      <div class="form-group">
+        <label>Select Student</label>
+        <select id="enroll_student"><option value="">-- Select Student --</option></select>
+      </div>
+      <div class="form-group">
+        <label>Select Course</label>
+        <select id="enroll_course"><option value="">-- Select Course --</option></select>
+      </div>
+      <button class="btn btn-primary" onclick="enrollStudent()">Enroll Student</button>
+
+      <div style="margin-top:1.4rem;">
+        <span class="section-label">Recent Enrollments</span>
+        <div id="enrollList" class="list-container"><p class="empty-state">Loading…</p></div>
+      </div>
+    </div>
+
+    <!-- ── CARD 4: DOUGHNUT CHART ── -->
+    <div class="card">
+      <h2 class="card-header">Hall Distribution</h2>
+      <div class="chart-container">
+        <canvas id="pieChart"></canvas>
+      </div>
+    </div>
+
+    <!-- ── CARD 4 (WIDE): ALLOCATE SEATS ── -->
+    <div class="card wide">
+      <h2 class="card-header">Seat Allocation Engine</h2>
+
+      <div class="split-layout">
+        <!-- Left: allocate form -->
+        <div>
+          <p style="font-size:0.85rem; color:var(--text-muted); margin-bottom:1.2rem; line-height:1.6;">
+            Select an exam below and click <strong style="color:var(--accent)">Run Allocation</strong>. 
+            The stored procedure (<code style="font-family:'JetBrains Mono',monospace; font-size:0.8rem; color:var(--info-text)">allocate_random_seats</code>) 
+            will randomly assign all registered students to halls, triggering the capacity check trigger before each insert.
+          </p>
+          <div class="form-group">
+            <label>Target Exam</label>
+            <select id="examSelect"><option value="">Loading exams…</option></select>
+          </div>
+          <button class="btn btn-primary" onclick="runAllocation()">⚡ Run Allocation</button>
+
+          <div id="statsRow" class="stats-row" style="margin-top:1.4rem; display:none;">
+            <div class="stat-chip"><div class="val" id="statStudents">—</div><div class="lbl">Students</div></div>
+            <div class="stat-chip"><div class="val" id="statHalls">—</div><div class="lbl">Halls Used</div></div>
+            <div class="stat-chip"><div class="val" id="statSeats">—</div><div class="lbl">Seats Filled</div></div>
+          </div>
+        </div>
+
+        <!-- Right: live allocation log -->
+        <div>
+          <span class="section-label">Live Allocation Log</span>
+          <div id="allocList" class="list-container"><p class="empty-state">No allocations yet</p></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── CARD 5 (WIDE): SEATING PLAN TABLE ── -->
+    <div class="card wide">
+      <h2 class="card-header">Full Seating Plan</h2>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Student Name</th>
+              <th>Roll No</th>
+              <th>Branch</th>
+              <th>Hall</th>
+              <th>Seat</th>
+              <th>Course</th>
+              <th>Exam Date</th>
+            </tr>
+          </thead>
+          <tbody id="seatTableBody">
+            <tr><td colspan="8" style="text-align:center; color:var(--text-muted); padding:2rem; font-family:'JetBrains Mono',monospace; font-size:0.8rem;">Run an allocation to see the seating plan</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+  <script>
+    const API = "http://localhost:3000";
+    let pieChart;
+
+    Chart.defaults.color = '#7B8DB0';
+    Chart.defaults.font.family = "'Syne', sans-serif";
+
+    // ── TOAST ──────────────────────────────────────────────
+    function showToast(msg, type = "success") {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.className = `show ${type}`;
+      clearTimeout(t._timer);
+      t._timer = setTimeout(() => { t.className = ""; }, 3500);
+    }
+
+    // ── CHART ──────────────────────────────────────────────
+    async function loadChart() {
+      try {
+        const res  = await fetch(API + "/analytics/piechart");
+        const data = await res.json();
+
+        const ctx = document.getElementById("pieChart").getContext("2d");
+        if (pieChart) pieChart.destroy();
+
+        const filled = data.filter(r => r.total_students > 0);
+        if (filled.length === 0) {
+          document.querySelector('.chart-container').innerHTML =
+            "<p style='color:var(--text-muted);font-size:0.85rem;padding-top:3rem;text-align:center;font-family:JetBrains Mono,monospace;'>No allocations yet</p>";
+          return;
+        }
+
+        pieChart = new Chart(ctx, {
+          type: "doughnut",
+          data: {
+            labels:   data.map(r => r.hall_name),
+            datasets: [{
+              data:            data.map(r => r.total_students),
+              backgroundColor: ["#00FFB2","#6366F1","#FCD34D","#F43F5E","#22D3EE","#A855F7"],
+              borderWidth: 0,
+              hoverOffset: 6
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: "72%",
+            plugins: {
+              legend: { position: "bottom", labels: { boxWidth: 10, padding: 18, color: "#F0F4FF" } }
+            }
+          }
+        });
+      } catch (e) { console.error("Chart error:", e); }
+    }
+
+    // ── STUDENTS ───────────────────────────────────────────
+    async function loadStudents() {
+      const res  = await fetch(API + "/students");
+      const data = await res.json();
+      const list = document.getElementById("studentList");
+
+      if (!data.length) { list.innerHTML = '<p class="empty-state">No students yet</p>'; return; }
+
+      list.innerHTML = data.map(s => `
+        <div class="item">
+          <div class="item-details">
+            <strong>${s.name}</strong>
+            <small>${s.roll_no} · ${s.branch}</small>
+          </div>
+          <span class="badge badge-blue">ID ${s.student_id}</span>
+        </div>`).join("");
+    }
+
+    async function addStudent() {
+      const payload = {
+        student_id: document.getElementById("s_id").value,
+        name:       document.getElementById("s_name").value.trim(),
+        roll_no:    document.getElementById("s_roll").value.trim(),
+        branch:     document.getElementById("s_branch").value
+      };
+      if (!payload.student_id || !payload.name || !payload.roll_no) {
+        return showToast("Fill in all student fields", "error");
+      }
+      const res = await fetch(API + "/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok) return showToast("Error: " + json.error, "error");
+      showToast("Student added ✓");
+      document.getElementById("s_id").value = "";
+      document.getElementById("s_name").value = "";
+      document.getElementById("s_roll").value = "";
+      loadStudents();
+      populateEnrollStudents();
+    }
+
+    // ── HALLS ──────────────────────────────────────────────
+    async function loadHalls() {
+      const res  = await fetch(API + "/halls");
+      const data = await res.json();
+      const list = document.getElementById("hallList");
+
+      if (!data.length) { list.innerHTML = '<p class="empty-state">No halls yet</p>'; return; }
+
+      list.innerHTML = data.map(h => {
+        const pct  = Math.round((h.total_allocated / h.capacity) * 100);
+        const cls  = pct >= 90 ? "badge-yellow" : pct > 0 ? "badge-green" : "badge-purple";
+        return `
+        <div class="item">
+          <div class="item-details">
+            <strong>${h.hall_name}</strong>
+            <small>Capacity: ${h.capacity} · Used: ${h.total_allocated}</small>
+          </div>
+          <span class="badge ${cls}">${pct}%</span>
+        </div>`;
+      }).join("");
+    }
+
+    async function addHall() {
+      const payload = {
+        hall_id:   document.getElementById("h_id").value,
+        hall_name: document.getElementById("h_name").value.trim(),
+        capacity:  document.getElementById("h_cap").value
+      };
+      if (!payload.hall_id || !payload.hall_name || !payload.capacity) {
+        return showToast("Fill in all hall fields", "error");
+      }
+      const res = await fetch(API + "/halls", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok) return showToast("Error: " + json.error, "error");
+      showToast("Hall added ✓");
+      document.getElementById("h_id").value = "";
+      document.getElementById("h_name").value = "";
+      document.getElementById("h_cap").value = "";
+      loadHalls();
+    }
+
+    // ── EXAMS DROPDOWN ──────────────────────────────────────
+    async function loadExams() {
+      const res  = await fetch(API + "/exams");
+      const data = await res.json();
+      const sel  = document.getElementById("examSelect");
+      sel.innerHTML = '<option value="">-- Select Exam --</option>';
+      data.forEach(e => {
+        sel.innerHTML += `<option value="${e.exam_id}">${e.course_title} — ${e.exam_date}</option>`;
+      });
+    }
+
+    // ── ALLOCATIONS ────────────────────────────────────────
+    async function loadAllocations() {
+      const res  = await fetch(API + "/allocations");
+      const data = await res.json();
+
+      // Allocation log (compact)
+      const log = document.getElementById("allocList");
+      if (!data.length) {
+        log.innerHTML = '<p class="empty-state">No allocations yet</p>';
+      } else {
+        log.innerHTML = data.map(a => `
+          <div class="item">
+            <div class="item-details">
+              <strong>${a.student_name} → ${a.hall_name}</strong>
+              <small>Seat ${a.seat_no} · ${a.roll_no}</small>
+            </div>
+            <span class="badge badge-green">✓ Assigned</span>
+          </div>`).join("");
+      }
+
+      // Full table
+      const tbody = document.getElementById("seatTableBody");
+      if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;font-family:'JetBrains Mono',monospace;font-size:0.8rem;">Run an allocation to see the seating plan</td></tr>`;
+      } else {
+        tbody.innerHTML = data.map((a, i) => `
+          <tr>
+            <td class="mono">${i + 1}</td>
+            <td><strong>${a.student_name}</strong></td>
+            <td class="mono">${a.roll_no}</td>
+            <td><span class="badge badge-purple">${a.branch}</span></td>
+            <td>${a.hall_name}</td>
+            <td class="mono" style="color:var(--accent); font-weight:700;">${a.seat_no}</td>
+            <td>${a.course_title}</td>
+            <td class="mono">${a.exam_date}</td>
+          </tr>`).join("");
+      }
+
+      // Stats row
+      if (data.length) {
+        const halls   = [...new Set(data.map(a => a.hall_name))].length;
+        document.getElementById("statStudents").textContent = data.length;
+        document.getElementById("statHalls").textContent    = halls;
+        document.getElementById("statSeats").textContent    = data.length;
+        document.getElementById("statsRow").style.display   = "flex";
+      }
+    }
+
+    async function runAllocation() {
+      const exam_id = document.getElementById("examSelect").value;
+      if (!exam_id) return showToast("Select an exam first", "error");
+
+      const btn = document.querySelector('.btn-primary');
+      btn.textContent = "⏳ Running…";
+      btn.disabled = true;
+
+      const res = await fetch(API + "/allocate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ exam_id })
+      });
+      const json = await res.json();
+
+      btn.textContent = "⚡ Run Allocation";
+      btn.disabled = false;
+
+      if (!res.ok) return showToast("Error: " + json.error, "error");
+
+      showToast("Seats allocated successfully ✓");
+      loadAllocations();
+      loadHalls();
+      loadChart();
+    }
+
+    // ── ENROLL ─────────────────────────────────────────────
+    async function loadCourses() {
+      const res  = await fetch(API + "/courses");
+      const data = await res.json();
+      const sel  = document.getElementById("enroll_course");
+      sel.innerHTML = '<option value="">-- Select Course --</option>';
+      data.forEach(c => {
+        sel.innerHTML += `<option value="${c.course_id}">${c.title} (${c.dept})</option>`;
+      });
+    }
+
+    async function loadEnrollments() {
+      const res  = await fetch(API + "/enrollments");
+      const data = await res.json();
+      const list = document.getElementById("enrollList");
+      if (!data.length) { list.innerHTML = '<p class="empty-state">No enrollments yet</p>'; return; }
+      list.innerHTML = data.map(e => `
+        <div class="item">
+          <div class="item-details">
+            <strong>${e.student_name}</strong>
+            <small>${e.roll_no} → ${e.course_title}</small>
+          </div>
+          <span class="badge badge-green">Enrolled</span>
+        </div>`).join("");
+    }
+
+    async function populateEnrollStudents() {
+      const res  = await fetch(API + "/students");
+      const data = await res.json();
+      const sel  = document.getElementById("enroll_student");
+      sel.innerHTML = '<option value="">-- Select Student --</option>';
+      data.forEach(s => {
+        sel.innerHTML += `<option value="${s.student_id}">${s.name} (${s.roll_no})</option>`;
+      });
+    }
+
+    async function enrollStudent() {
+      const payload = {
+        student_id: document.getElementById("enroll_student").value,
+        course_id:  document.getElementById("enroll_course").value
+      };
+      if (!payload.student_id || !payload.course_id) {
+        return showToast("Select both student and course", "error");
+      }
+      const res = await fetch(API + "/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      const json = await res.json();
+      if (!res.ok) return showToast("Error: " + json.error, "error");
+      showToast("Student enrolled ✓");
+      loadEnrollments();
+    }
+
+    // ── INIT ───────────────────────────────────────────────
+    loadStudents();
+    loadHalls();
+    loadExams();
+    loadAllocations();
+    loadChart();
+    loadCourses();
+    loadEnrollments();
+    populateEnrollStudents();
+  </script>
+</body>
+</html>
